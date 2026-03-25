@@ -1138,8 +1138,8 @@
                 firebaseApp = initializeApp(cfg, 'inventarioApp_' + Date.now());
                 db = getFirestore(firebaseApp);
                 setFirebaseStatus('online', '✅ Firebase Conectado');
-                document.getElementById('fb-mensaje').innerHTML = '✅ <span style="color:green">Conexión exitosa. Sincronizando datos...</span>';
-                await sincronizarAhora();
+                document.getElementById('fb-mensaje').innerHTML = '✅ <span style="color:green">Conexión exitosa. Cargando datos...</span>';
+                await cargarDesdeFirebase();
             } catch(e) {
                 setFirebaseStatus('offline', '❌ Error Firebase');
                 document.getElementById('fb-mensaje').innerHTML = '❌ <span style="color:red">Error: ' + e.message + '</span>';
@@ -1157,6 +1157,31 @@
             const el = document.getElementById('firebaseStatus');
             el.className = cls;
             el.textContent = txt;
+        }
+
+        async function cargarDesdeFirebase() {
+            if (!db) return;
+            try {
+                const { doc, getDoc } = window._firebaseModules;
+                setFirebaseStatus('syncing', '🔄 Cargando datos...');
+                const snap = await getDoc(doc(db, 'inventario', 'datos'));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.inventario)  { inventario  = JSON.parse(data.inventario);  localStorage.setItem('inventarioHospital',  data.inventario); }
+                    if (data.movimientos) { movimientos = JSON.parse(data.movimientos); localStorage.setItem('movimientosHospital', data.movimientos); }
+                    if (data.ordenes)     { ordenes     = JSON.parse(data.ordenes);     localStorage.setItem('ordenesHospital',     data.ordenes); }
+                    if (data.proveedores) { proveedores = JSON.parse(data.proveedores); localStorage.setItem('proveedoresHospital', data.proveedores); }
+                    gabinetes.forEach(gab => { if (!inventario[gab]) inventario[gab] = []; });
+                    gabinetes.forEach((gab, idx) => { crearFormularioGabinete(gab, idx); mostrarInventarioGabinete(gab); });
+                    actualizarDashboard();
+                    mostrarProveedores();
+                    setFirebaseStatus('online', '✅ Datos cargados ' + new Date().toLocaleTimeString('es-CL'));
+                } else {
+                    setFirebaseStatus('online', '✅ Firebase Conectado');
+                }
+            } catch(e) {
+                setFirebaseStatus('offline', '⚠️ Error cargando');
+            }
         }
 
         async function sincronizarAhora() {
