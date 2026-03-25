@@ -1181,6 +1181,7 @@
                 }
             } catch(e) {
                 setFirebaseStatus('offline', '⚠️ Error cargando');
+                document.getElementById('fb-mensaje').innerHTML = '❌ <span style="color:red">Error al cargar: ' + e.message + '</span>';
             }
         }
 
