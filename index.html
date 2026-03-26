@@ -1,0 +1,2558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Inventario Hospitalario</title>
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+      import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+      window._firebaseModules = { initializeApp, getFirestore, doc, setDoc, getDoc, onSnapshot, collection };
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 3px solid #1a237e;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+        }
+        
+        .tab {
+            padding: 15px 20px;
+            cursor: pointer;
+            background: #e0e0e0;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.3s;
+            border-right: 1px solid #ccc;
+        }
+        
+        .tab:hover {
+            background: #d0d0d0;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #1a237e;
+            border-bottom: 3px solid #1a237e;
+            margin-bottom: -3px;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .stat-card h3 {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .alert-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .alert-box.danger {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        button.btn-danger {
+            background: #dc3545;
+        }
+        
+        button.btn-danger:hover {
+            background: #c82333;
+        }
+        
+        button.btn-success {
+            background: #28a745;
+        }
+        
+        button.btn-success:hover {
+            background: #218838;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 13px;
+        }
+        
+        th {
+            background: #1a237e;
+            color: white;
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+            white-space: nowrap;
+        }
+        
+        .badge-critico {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .badge-bajo {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .badge-medio {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .badge-optimo {
+            background: #28a745;
+            color: white;
+        }
+        
+        .badge-vencido {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .badge-por-vencer {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .badge-vigente {
+            background: #28a745;
+            color: white;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 20px;
+            border-radius: 4px;
+            line-height: 1.8;
+        }
+        
+        .instructions h3 {
+            color: #1976d2;
+            margin-bottom: 15px;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .export-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        
+        .scroll-table {
+            overflow-x: auto;
+        }
+
+        /* ===== LOGIN OVERLAY ===== */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 60%, #667eea 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        #loginBox {
+            background: white;
+            border-radius: 18px;
+            padding: 48px 40px 36px;
+            width: 360px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+            text-align: center;
+        }
+        #loginBox .login-logo {
+            font-size: 56px;
+            margin-bottom: 10px;
+        }
+        #loginBox h2 {
+            color: #1a237e;
+            font-size: 22px;
+            margin-bottom: 6px;
+        }
+        #loginBox p {
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+        #loginBox input {
+            width: 100%;
+            margin-bottom: 14px;
+            padding: 13px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        #loginBox input:focus { border-color: #667eea; outline: none; }
+        #loginBtn {
+            width: 100%;
+            background: linear-gradient(135deg, #1a237e, #667eea);
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 4px;
+            transition: opacity 0.2s;
+        }
+        #loginBtn:hover { opacity: 0.9; }
+        #loginError {
+            color: #dc3545;
+            font-size: 13px;
+            margin-top: 12px;
+            display: none;
+        }
+        #logoutBtn {
+            background: #dc3545;
+            padding: 8px 18px;
+            font-size: 13px;
+            border-radius: 20px;
+            margin-left: 15px;
+        }
+
+        /* ===== FIREBASE STATUS ===== */
+        #firebaseStatus {
+            position: fixed;
+            bottom: 14px;
+            right: 18px;
+            font-size: 12px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+            z-index: 500;
+            cursor: pointer;
+        }
+        #firebaseStatus.offline { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+        #firebaseStatus.syncing { background: #e3f2fd; color: #1565c0; border-color: #90caf9; }
+
+        /* ===== COPY GABINETE BUTTON ===== */
+        .btn-copy-gabinete {
+            background: #00897b !important;
+            padding: 10px 20px;
+            font-size: 13px;
+        }
+        .btn-copy-gabinete:hover { background: #00695c !important; }
+    </style>
+</head>
+<body>
+    <!-- LOGIN OVERLAY -->
+    <div id="loginOverlay">
+        <div id="loginBox">
+            <div class="login-logo">🏥</div>
+            <h2>Sistema de Inventario</h2>
+            <p>Acceso restringido al personal autorizado</p>
+            <input type="text" id="loginUser" placeholder="Usuario" autocomplete="off" />
+            <input type="password" id="loginPass" placeholder="Contraseña" onkeydown="if(event.key==='Enter') doLogin()" />
+            <button id="loginBtn" onclick="doLogin()">🔐 Ingresar</button>
+            <div id="loginError">❌ Usuario o contraseña incorrectos</div>
+        </div>
+    </div>
+
+    <!-- FIREBASE STATUS BADGE -->
+    <div id="firebaseStatus" class="offline" onclick="showTab('firebase')" title="Click para configurar Firebase">
+        ☁️ Firebase: No configurado
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Sistema de Inventario Hospitalario</h1>
+            <p>Control completo de 9 gabinetes con alertas automáticas &nbsp;
+                <button id="logoutBtn" onclick="doLogout()">🚪 Cerrar Sesión</button>
+            </p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
+            <button class="tab" onclick="showTab('gabinete1')">🏥 Gabinete 1</button>
+            <button class="tab" onclick="showTab('gabinete2')">💉 Gabinete 2</button>
+            <button class="tab" onclick="showTab('gabinete3')">🩹 Gabinete 3</button>
+            <button class="tab" onclick="showTab('gabinete4')">🧪 Gabinete 4</button>
+            <button class="tab" onclick="showTab('gabinete5')">🔬 Gabinete 5</button>
+            <button class="tab" onclick="showTab('gabinete6')">💊 Gabinete 6</button>
+            <button class="tab" onclick="showTab('gabinete7')">🩺 Gabinete 7</button>
+            <button class="tab" onclick="showTab('gabinete8')">🧴 Gabinete 8</button>
+            <button class="tab" onclick="showTab('gabinete9')">🌡️ Gabinete 9</button>
+            <button class="tab" onclick="showTab('gabinete10')">📦 Gabinete 10</button>
+            <button class="tab" onclick="showTab('gabinete11')">🏥 Gabinete 11</button>
+            <button class="tab" onclick="showTab('movimientos')">📦 Movimientos</button>
+            <button class="tab" onclick="showTab('ordenes')">📋 Órdenes</button>
+            <button class="tab" onclick="showTab('proveedores')">📞 Proveedores</button>
+            <button class="tab" onclick="showTab('instrucciones')">📖 Instrucciones</button>
+            <button class="tab" onclick="showTab('firebase')" style="background:#e8f5e9; color:#2e7d32;">☁️ Firebase</button>
+        </div>
+
+        <div id="dashboard" class="tab-content active">
+            <!-- Tabla 1: Stock Bajo/Crítico -->
+            <div class="alert-box danger" style="margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">⚠️ Artículos con Stock Bajo o Crítico</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="copiarStockBajo()" style="background: #ff9800; padding: 10px 20px;">
+                            📋 Copiar
+                        </button>
+                        <button onclick="exportarStockBajo()" style="background: #28a745; padding: 10px 20px;">
+                            📥 Descargar Excel
+                        </button>
+                    </div>
+                </div>
+                <div class="scroll-table">
+                    <table id="alertasStockTable" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Gabinete</th>
+                                <th>Código</th>
+                                <th>Artículo</th>
+                                <th>Stock Actual</th>
+                                <th>Mínimo</th>
+                                <th>Estado</th>
+                                <th>Proveedor</th>
+                                <th>Teléfono</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertasStockBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Tabla 2: Vencidos/Por Vencer -->
+            <div class="alert-box" style="background: #fff3cd; margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">📅 Artículos Vencidos o Por Vencer (30 días)</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="copiarCaducidad()" style="background: #ff9800; padding: 10px 20px;">
+                            📋 Copiar
+                        </button>
+                        <button onclick="exportarCaducidad()" style="background: #28a745; padding: 10px 20px;">
+                            📥 Descargar Excel
+                        </button>
+                    </div>
+                </div>
+                <div class="scroll-table">
+                    <table id="alertasTable">
+                        <thead>
+                            <tr>
+                                <th>Gabinete</th>
+                                <th>Código</th>
+                                <th>Artículo</th>
+                                <th>Stock</th>
+                                <th>Fecha Caducidad</th>
+                                <th>Días Restantes</th>
+                                <th>Estado</th>
+                                <th>Lote</th>
+                                <th>Ubicación</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertasBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Resumen General -->
+            <h2>Resumen General del Inventario</h2>
+            <div class="dashboard-grid" id="dashboardStats"></div>
+        </div>
+
+        <div id="gabinete1" class="tab-content"></div>
+        <div id="gabinete2" class="tab-content"></div>
+        <div id="gabinete3" class="tab-content"></div>
+        <div id="gabinete4" class="tab-content"></div>
+        <div id="gabinete5" class="tab-content"></div>
+        <div id="gabinete6" class="tab-content"></div>
+        <div id="gabinete7" class="tab-content"></div>
+        <div id="gabinete8" class="tab-content"></div>
+        <div id="gabinete9" class="tab-content"></div>
+        <div id="gabinete10" class="tab-content"></div>
+        <div id="gabinete11" class="tab-content"></div>
+
+        <div id="movimientos" class="tab-content">
+            <h2>Registro de Movimientos</h2>
+            <div class="form-section">
+                <h3>Registrar Nuevo Movimiento</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo de Movimiento:</label>
+                        <select id="movTipo">
+                            <option>ENTRADA</option>
+                            <option>SALIDA</option>
+                            <option>AJUSTE</option>
+                            <option>BAJA POR VENCIMIENTO</option>
+                            <option>TRANSFERENCIA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Gabinete:</label>
+                        <select id="movGabinete"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Artículo:</label>
+                        <select id="movArticulo"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cajas:</label>
+                        <input type="number" id="movCajas" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidades Sueltas:</label>
+                        <input type="number" id="movUnidades" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Unidades:</label>
+                        <input type="number" id="movTotalUnidades" value="0" min="0" readonly style="background: #f0f0f0;">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Motivo:</label>
+                        <input type="text" id="movMotivo" placeholder="Ej: Compra mensual">
+                    </div>
+                    <div class="form-group">
+                        <label>Responsable:</label>
+                        <input type="text" id="movResponsable" placeholder="Nombre del responsable">
+                    </div>
+                </div>
+                <button onclick="registrarMovimiento()">📝 Registrar Movimiento</button>
+            </div>
+            
+            <h3>Historial de Movimientos</h3>
+            <div class="scroll-table">
+                <table id="movimientosTable">
+                    <thead>
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Tipo</th>
+                            <th>Gabinete</th>
+                            <th>Artículo</th>
+                            <th>Cantidad</th>
+                            <th>Stock Anterior</th>
+                            <th>Stock Nuevo</th>
+                            <th>Motivo</th>
+                            <th>Responsable</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movimientosBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="ordenes" class="tab-content">
+            <h2>Órdenes Históricas</h2>
+            <div class="form-section">
+                <h3>Crear Nueva Orden</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>N° Orden:</label>
+                        <input type="text" id="ordenNumero" placeholder="OC-2024-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Proveedor:</label>
+                        <select id="ordenProveedor"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Artículo:</label>
+                        <input type="text" id="ordenArticulo" placeholder="Nombre del artículo">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cantidad Solicitada:</label>
+                        <input type="number" id="ordenCantidad" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>N° Factura:</label>
+                        <input type="text" id="ordenFactura" placeholder="F-2024-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha Esperada:</label>
+                        <input type="date" id="ordenFechaEsperada">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Gabinete Destino:</label>
+                        <select id="ordenGabinete">
+                            <option>Gabinete 1</option>
+                            <option>Gabinete 2</option>
+                            <option>Gabinete 3</option>
+                            <option>Gabinete 4</option>
+                            <option>Gabinete 5</option>
+                            <option>Gabinete 6</option>
+                            <option>Gabinete 7</option>
+                            <option>Gabinete 8</option>
+                            <option>Gabinete 9</option>
+                            <option>Gabinete 10</option>
+                            <option>Gabinete 11</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Responsable:</label>
+                        <input type="text" id="ordenResponsable">
+                    </div>
+                </div>
+                <button onclick="crearOrden()">📋 Crear Orden</button>
+            </div>
+            
+            <h3>Historial de Órdenes</h3>
+            <div class="scroll-table">
+                <table id="ordenesTable">
+                    <thead>
+                        <tr>
+                            <th>N° Orden</th>
+                            <th>Fecha Orden</th>
+                            <th>Fecha Esperada</th>
+                            <th>Proveedor</th>
+                            <th>Artículo</th>
+                            <th>Cantidad</th>
+                            <th>N° Factura</th>
+                            <th>Estado</th>
+                            <th>Gabinete</th>
+                            <th>Responsable</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordenesBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="proveedores" class="tab-content">
+            <h2>Directorio de Proveedores</h2>
+            <div class="form-section">
+                <h3>Agregar Nuevo Proveedor</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre Comercial:</label>
+                        <input type="text" id="provNombre" placeholder="Farmacia Central">
+                    </div>
+                    <div class="form-group">
+                        <label>Contacto:</label>
+                        <input type="text" id="provContacto" placeholder="Nombre del contacto">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono:</label>
+                        <input type="text" id="provTelefono" placeholder="+51-999-888-777">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="provEmail" placeholder="ventas@proveedor.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Productos que Suministra:</label>
+                        <input type="text" id="provProductos" placeholder="Medicamentos, insumos...">
+                    </div>
+                    <div class="form-group">
+                        <label>Plazo Entrega (días):</label>
+                        <input type="number" id="provPlazo" value="7">
+                    </div>
+                </div>
+                <button onclick="agregarProveedor()">📞 Agregar Proveedor</button>
+            </div>
+            
+            <h3>Lista de Proveedores</h3>
+            <div class="scroll-table">
+                <table id="proveedoresTable">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Contacto</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Productos</th>
+                            <th>Plazo</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="proveedoresBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="instrucciones" class="tab-content">
+            <div class="instructions">
+                <h2>📖 Guía de Uso del Sistema</h2>
+                
+                <h3>🎯 Bienvenido</h3>
+                <p>Este sistema te permite gestionar el inventario de 9 gabinetes hospitalarios de forma profesional, con alertas automáticas y control total.</p>
+                
+                <h3>✅ Agregar Artículos</h3>
+                <ul>
+                    <li>Ve a la pestaña del gabinete deseado (Gabinete 1 a 9)</li>
+                    <li>Completa el formulario con los datos del artículo</li>
+                    <li>Define el stock mínimo, medio y máximo</li>
+                    <li>Indica cuántas unidades trae cada caja</li>
+                    <li>Haz clic en "Agregar Artículo"</li>
+                </ul>
+                
+                <h3>📥 Registrar Entrada de Stock</h3>
+                <ul>
+                    <li>Ve a la pestaña "Movimientos"</li>
+                    <li>Selecciona tipo: ENTRADA</li>
+                    <li>Elige el gabinete y artículo</li>
+                    <li>Ingresa la cantidad en cajas y/o unidades</li>
+                    <li>El sistema sumará automáticamente al stock</li>
+                </ul>
+                
+                <h3>📤 Registrar Salida de Stock</h3>
+                <ul>
+                    <li>En "Movimientos" selecciona tipo: SALIDA</li>
+                    <li>Elige el artículo</li>
+                    <li>Indica cuánto sale</li>
+                    <li>El stock se restará automáticamente</li>
+                </ul>
+                
+                <h3>🚦 Sistema de Alertas</h3>
+                <ul>
+                    <li><span class="badge badge-critico">🔴 CRÍTICO</span> = Stock igual a 0 o por debajo del mínimo</li>
+                    <li><span class="badge badge-bajo">🟡 BAJO</span> = Stock entre mínimo y medio</li>
+                    <li><span class="badge badge-medio">🟠 MEDIO</span> = Stock entre medio y máximo</li>
+                    <li><span class="badge badge-optimo">🟢 ÓPTIMO</span> = Stock sobre el máximo</li>
+                </ul>
+                
+                <h3>📅 Control de Caducidad</h3>
+                <ul>
+                    <li><span class="badge badge-vencido">⚠️ VENCIDO</span> = Ya pasó la fecha de caducidad</li>
+                    <li><span class="badge badge-por-vencer">⏰ POR VENCER</span> = Vence en menos de 30 días</li>
+                    <li><span class="badge badge-vigente">✅ VIGENTE</span> = Más de 30 días de vigencia</li>
+                </ul>
+                
+                <h3>📊 Dashboard</h3>
+                <p>El Dashboard muestra un resumen completo de todos los gabinetes. La tabla inferior lista todos los artículos que requieren atención inmediata (críticos, vencidos o por vencer).</p>
+                
+                <h3>📋 Órdenes de Compra</h3>
+                <ul>
+                    <li>Crea órdenes cuando detectes productos en estado crítico</li>
+                    <li>El sistema guarda el historial completo</li>
+                    <li>Puedes actualizar el estado de cada orden</li>
+                </ul>
+                
+                <h3>📞 Proveedores</h3>
+                <p>Mantén actualizado el directorio de proveedores para facilitar las compras.</p>
+                
+                <h3>💾 Guardar Datos</h3>
+                <p>Todos los datos se guardan automáticamente en tu navegador. No necesitas hacer nada extra.</p>
+                
+                <h3>⚠️ Importante</h3>
+                <ul>
+                    <li>Revisa el Dashboard diariamente</li>
+                    <li>Registra todos los movimientos inmediatamente</li>
+                    <li>Verifica las fechas de caducidad regularmente</li>
+                    <li>Mantén actualizados los contactos de proveedores</li>
+                </ul>
+            </div>
+            
+            <div class="export-section">
+                <h3>💾 Exportar Datos</h3>
+                <p>Puedes exportar todos los datos a Excel para respaldo o análisis:</p>
+                <button onclick="exportarAExcel()">📊 Exportar Todo a Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIREBASE CONFIG TAB -->
+    <div id="firebase" class="tab-content" style="display:none; padding:30px;">
+        <h2>☁️ Configuración de Firebase</h2>
+        <p style="color:#555; margin-bottom:20px;">Conecta tu sistema a Firebase Firestore para guardar los datos en la nube y sincronizarlos entre dispositivos.</p>
+
+        <div class="form-section" style="max-width:700px;">
+            <h3>🔧 Credenciales del Proyecto Firebase</h3>
+            <p style="font-size:13px; color:#777; margin-bottom:18px;">
+                Ve a <strong>console.firebase.google.com</strong> → Tu Proyecto → Configuración del Proyecto → Tus Apps → Config y copia los valores.
+            </p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>API Key:</label>
+                    <input type="text" id="fb-apiKey" placeholder="AIzaSy...">
+                </div>
+                <div class="form-group">
+                    <label>Auth Domain:</label>
+                    <input type="text" id="fb-authDomain" placeholder="tu-proyecto.firebaseapp.com">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Project ID:</label>
+                    <input type="text" id="fb-projectId" placeholder="tu-proyecto-id">
+                </div>
+                <div class="form-group">
+                    <label>Storage Bucket:</label>
+                    <input type="text" id="fb-storageBucket" placeholder="tu-proyecto.appspot.com">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Messaging Sender ID:</label>
+                    <input type="text" id="fb-messagingSenderId" placeholder="123456789">
+                </div>
+                <div class="form-group">
+                    <label>App ID:</label>
+                    <input type="text" id="fb-appId" placeholder="1:123:web:abc123">
+                </div>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;">
+                <button onclick="guardarConfigFirebase()" class="btn-success">💾 Guardar y Conectar</button>
+                <button onclick="sincronizarAhora()" style="background:#1565c0;">🔄 Sincronizar Ahora</button>
+                <button onclick="desconectarFirebase()" class="btn-danger">🔌 Desconectar</button>
+            </div>
+            <div id="fb-mensaje" style="margin-top:15px; font-size:14px;"></div>
+        </div>
+
+        <div style="max-width:700px; margin-top:24px;">
+            <h3 style="font-size:18px; color:#1a237e; margin-bottom:18px;">📋 Cómo configurar Firebase — Paso a paso</h3>
+
+            <!-- PASO 1 -->
+            <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; background:#fff; border:2px solid #e3f2fd; border-radius:12px; padding:18px;">
+                <div style="background:#1a237e; color:white; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold; flex-shrink:0;">1</div>
+                <div>
+                    <p style="font-weight:700; font-size:15px; margin-bottom:6px;">Abre Firebase Console</p>
+                    <p style="color:#555; font-size:13px; margin-bottom:8px;">Desde tu celular o computador, abre el navegador y ve a:</p>
+                    <a href="https://console.firebase.google.com" target="_blank" style="background:#ff9800; color:white; padding:8px 16px; border-radius:6px; text-decoration:none; font-weight:700; font-size:14px;">👉 console.firebase.google.com</a>
+                    <p style="color:#777; font-size:12px; margin-top:8px;">Inicia sesión con tu cuenta de Gmail.</p>
+                </div>
+            </div>
+
+            <!-- PASO 2 -->
+            <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; background:#fff; border:2px solid #e3f2fd; border-radius:12px; padding:18px;">
+                <div style="background:#1a237e; color:white; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold; flex-shrink:0;">2</div>
+                <div>
+                    <p style="font-weight:700; font-size:15px; margin-bottom:6px;">Crea un proyecto nuevo</p>
+                    <p style="color:#555; font-size:13px;">Haz clic en <strong>"Agregar proyecto"</strong> → Escribe el nombre <strong>inventario-vidasana</strong> → Haz clic en <strong>"Continuar"</strong> hasta terminar (puedes desactivar Google Analytics, no es necesario).</p>
+                </div>
+            </div>
+
+            <!-- PASO 3 -->
+            <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; background:#fff; border:2px solid #e3f2fd; border-radius:12px; padding:18px;">
+                <div style="background:#1a237e; color:white; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold; flex-shrink:0;">3</div>
+                <div>
+                    <p style="font-weight:700; font-size:15px; margin-bottom:6px;">Crea la base de datos</p>
+                    <p style="color:#555; font-size:13px;">En el menú de la izquierda busca <strong>"Firestore Database"</strong> → clic en <strong>"Crear base de datos"</strong> → Elige <strong>"Comenzar en modo de prueba"</strong> → clic en <strong>"Siguiente"</strong> y luego <strong>"Listo"</strong>.</p>
+                    <div style="background:#fff8e1; border-left:3px solid #ffc107; padding:8px 12px; margin-top:8px; border-radius:4px; font-size:12px; color:#555;">
+                        💡 El modo de prueba permite leer y escribir libremente durante 30 días. Es suficiente para comenzar.
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASO 4 -->
+            <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; background:#fff; border:2px solid #e3f2fd; border-radius:12px; padding:18px;">
+                <div style="background:#1a237e; color:white; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold; flex-shrink:0;">4</div>
+                <div>
+                    <p style="font-weight:700; font-size:15px; margin-bottom:6px;">Registra la app web</p>
+                    <p style="color:#555; font-size:13px;">Haz clic en el ícono <strong>⚙️ (rueda dentada)</strong> arriba a la izquierda → <strong>"Configuración del proyecto"</strong> → baja hasta <strong>"Tus apps"</strong> → clic en el ícono <strong>&lt;/&gt;</strong> (Web) → escribe un nombre (ej: <em>inventario</em>) → clic en <strong>"Registrar app"</strong>.</p>
+                </div>
+            </div>
+
+            <!-- PASO 5 -->
+            <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; background:#fff; border:2px solid #e3f2fd; border-radius:12px; padding:18px;">
+                <div style="background:#1a237e; color:white; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold; flex-shrink:0;">5</div>
+                <div>
+                    <p style="font-weight:700; font-size:15px; margin-bottom:6px;">Copia las credenciales</p>
+                    <p style="color:#555; font-size:13px; margin-bottom:8px;">Aparecerá un bloque de código así:</p>
+                    <div style="background:#263238; color:#80cbc4; font-family:monospace; font-size:12px; padding:12px 16px; border-radius:8px; line-height:1.8;">
+                        const firebaseConfig = {<br>
+                        &nbsp;&nbsp;apiKey: <span style="color:#f48fb1;">"AIzaSy..."</span>,<br>
+                        &nbsp;&nbsp;authDomain: <span style="color:#f48fb1;">"tu-proyecto.firebaseapp.com"</span>,<br>
+                        &nbsp;&nbsp;projectId: <span style="color:#f48fb1;">"tu-proyecto"</span>,<br>
+                        &nbsp;&nbsp;storageBucket: <span style="color:#f48fb1;">"tu-proyecto.appspot.com"</span>,<br>
+                        &nbsp;&nbsp;messagingSenderId: <span style="color:#f48fb1;">"123456"</span>,<br>
+                        &nbsp;&nbsp;appId: <span style="color:#f48fb1;">"1:123:web:abc"</span><br>
+                        };
+                    </div>
+                    <p style="color:#555; font-size:13px; margin-top:8px;">Copia cada valor y pégalo en los campos de arriba ☝️</p>
+                </div>
+            </div>
+
+            <!-- PASO 6 -->
+            <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; background:#e8f5e9; border:2px solid #a5d6a7; border-radius:12px; padding:18px;">
+                <div style="background:#2e7d32; color:white; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold; flex-shrink:0;">6</div>
+                <div>
+                    <p style="font-weight:700; font-size:15px; margin-bottom:6px; color:#2e7d32;">✅ ¡Conectar!</p>
+                    <p style="color:#555; font-size:13px;">Completa los campos de arriba con los valores copiados y haz clic en <strong>"💾 Guardar y Conectar"</strong>. El indicador en la esquina inferior derecha debe cambiar a <strong style="color:#2e7d32;">✅ Firebase Conectado</strong>.</p>
+                </div>
+            </div>
+
+            <!-- SUBIR PAGINA -->
+            <div style="background:#f3e5f5; border:2px solid #ce93d8; border-radius:12px; padding:18px; margin-top:8px;">
+                <p style="font-weight:700; font-size:16px; margin-bottom:14px; color:#6a1b9a;">🌐 ¿Cómo subir esta página a internet?</p>
+
+                <!-- OPCION A: GitHub + Firebase -->
+                <div style="background:white; border-radius:10px; padding:16px; margin-bottom:16px; border:2px solid #6a1b9a;">
+                    <p style="font-weight:700; font-size:14px; color:#6a1b9a; margin-bottom:12px;">⭐ OPCIÓN A — GitHub + Firebase Hosting (Recomendado)</p>
+                    <p style="font-size:12px; color:#777; margin-bottom:14px;">Con esta opción, cada vez que guardes cambios en GitHub, la página se actualiza automáticamente en internet. No necesitas saber programar.</p>
+
+                    <div style="display:flex; flex-direction:column; gap:12px; font-size:13px; color:#444;">
+
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#24292e; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">GitHub 1</span>
+                            <div>
+                                <strong>Crea cuenta en GitHub</strong><br>
+                                <span style="color:#777;">Ve a <a href="https://github.com" target="_blank" style="color:#6a1b9a; font-weight:700;">github.com</a> → "Sign up" → crea cuenta gratuita con tu email.</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#24292e; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">GitHub 2</span>
+                            <div>
+                                <strong>Crea un repositorio</strong><br>
+                                <span style="color:#777;">Haz clic en <strong>"New repository"</strong> (botón verde) → Nómbralo <strong>inventario-vidasana</strong> → márcalo como <strong>Public</strong> → clic en <strong>"Create repository"</strong>.</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#24292e; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">GitHub 3</span>
+                            <div>
+                                <strong>Sube el archivo index.html</strong><br>
+                                <span style="color:#777;">En la página del repositorio haz clic en <strong>"uploading an existing file"</strong> → arrastra tu archivo <strong>index.html</strong> → clic en <strong>"Commit changes"</strong> (botón verde abajo).</span>
+                            </div>
+                        </div>
+
+                        <div style="border-top:1px dashed #ddd; padding-top:12px; display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#ff6f00; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">Firebase 1</span>
+                            <div>
+                                <strong>Activa Firebase Hosting</strong><br>
+                                <span style="color:#777;">En Firebase Console → menú izquierdo → <strong>"Hosting"</strong> → clic en <strong>"Comenzar"</strong> → sigue los pasos hasta llegar a la opción de conectar con GitHub.</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#ff6f00; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">Firebase 2</span>
+                            <div>
+                                <strong>Conecta GitHub con Firebase</strong><br>
+                                <span style="color:#777;">En Firebase Hosting → <strong>"Conectar a GitHub"</strong> → autoriza el acceso → selecciona el repositorio <strong>inventario-vidasana</strong>.</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#ff6f00; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">Firebase 3</span>
+                            <div>
+                                <strong>Configura el despliegue automático</strong><br>
+                                <span style="color:#777;">Firebase preguntará qué carpeta publicar. Escribe <strong>/</strong> (o deja en blanco) ya que el index.html está en la raíz → haz clic en <strong>"Finalizar"</strong>.</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <span style="background:#2e7d32; color:white; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:bold; flex-shrink:0; margin-top:2px;">✅ Listo</span>
+                            <div>
+                                <strong>¡Tu página está en internet!</strong><br>
+                                <span style="color:#777;">Firebase te dará una dirección como <strong>inventario-vidasana.web.app</strong>. Cada vez que subas un archivo nuevo a GitHub, la página se actualiza sola en segundos.</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- OPCION B: Netlify -->
+                <div style="background:white; border-radius:10px; padding:16px; border:2px solid #ddd;">
+                    <p style="font-weight:700; font-size:14px; color:#555; margin-bottom:10px;">🚀 OPCIÓN B — Netlify (La más rápida, sin GitHub)</p>
+                    <p style="font-size:13px; color:#555; margin-bottom:10px;">Solo arrastra y suelta el archivo. En 30 segundos tienes un enlace para compartir.</p>
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <a href="https://app.netlify.com/drop" target="_blank" style="background:#00ad9f; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; font-weight:700; font-size:14px;">👉 Ir a Netlify Drop</a>
+                        <span style="font-size:13px; color:#777;">→ Arrastra tu <strong>index.html</strong> → ¡listo! Te da un enlace al instante.</span>
+                    </div>
+                    <p style="font-size:12px; color:#aaa; margin-top:10px;">⚠️ Desventaja: el enlace cambia cada vez que subas una versión nueva. Con GitHub+Firebase siempre es el mismo enlace.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  LOGIN
+        // ============================================================
+        const USUARIO_VALIDO = 'VIDASANA1';
+        const CLAVE_VALIDA   = 'BODEGA1';
+
+        function doLogin() {
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value;
+            if (u === USUARIO_VALIDO && p === CLAVE_VALIDA) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                sessionStorage.setItem('loggedIn', '1');
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+                document.getElementById('loginPass').value = '';
+            }
+        }
+
+        function doLogout() {
+            sessionStorage.removeItem('loggedIn');
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPass').value = '';
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('loggedIn') === '1') {
+                document.getElementById('loginOverlay').style.display = 'none';
+            }
+            setTimeout(cargarConfigFirebase, 800);
+        });
+
+        // ============================================================
+        //  FIREBASE
+        // ============================================================
+        let db = null;
+        let firebaseApp = null;
+
+        // ✅ Credenciales Firebase precargadas
+        const FIREBASE_CONFIG_DEFAULT = {
+            apiKey:            "AIzaSyDMjhnCcfSkOgUeT49D2zaNqtJ4iv2VlCU",
+            authDomain:        "inventario-vidasana.firebaseapp.com",
+            projectId:         "inventario-vidasana",
+            storageBucket:     "inventario-vidasana.firebasestorage.app",
+            messagingSenderId: "342059322786",
+            appId:             "1:342059322786:web:a86fa2f7324019b18276fb"
+        };
+
+        function cargarConfigFirebase() {
+            // Usa las credenciales guardadas o las precargadas
+            const cfg = JSON.parse(localStorage.getItem('firebaseConfig') || 'null') || FIREBASE_CONFIG_DEFAULT;
+            document.getElementById('fb-apiKey').value            = cfg.apiKey || '';
+            document.getElementById('fb-authDomain').value        = cfg.authDomain || '';
+            document.getElementById('fb-projectId').value         = cfg.projectId || '';
+            document.getElementById('fb-storageBucket').value     = cfg.storageBucket || '';
+            document.getElementById('fb-messagingSenderId').value = cfg.messagingSenderId || '';
+            document.getElementById('fb-appId').value             = cfg.appId || '';
+            conectarFirebase(cfg);
+        }
+
+        async function guardarConfigFirebase() {
+            const cfg = {
+                apiKey:            document.getElementById('fb-apiKey').value.trim(),
+                authDomain:        document.getElementById('fb-authDomain').value.trim(),
+                projectId:         document.getElementById('fb-projectId').value.trim(),
+                storageBucket:     document.getElementById('fb-storageBucket').value.trim(),
+                messagingSenderId: document.getElementById('fb-messagingSenderId').value.trim(),
+                appId:             document.getElementById('fb-appId').value.trim(),
+            };
+            if (!cfg.apiKey || !cfg.projectId) {
+                document.getElementById('fb-mensaje').innerHTML = '❌ <span style="color:red">Debes completar al menos API Key y Project ID.</span>';
+                return;
+            }
+            localStorage.setItem('firebaseConfig', JSON.stringify(cfg));
+            await conectarFirebase(cfg);
+        }
+
+        async function conectarFirebase(cfg) {
+            setFirebaseStatus('syncing', '🔄 Conectando...');
+            document.getElementById('fb-mensaje').innerHTML = '⏳ Conectando con Firebase...';
+            try {
+                const mods = window._firebaseModules;
+                if (!mods) { throw new Error('Módulos Firebase no cargados aún. Recarga la página.'); }
+                const { initializeApp, getFirestore } = mods;
+                firebaseApp = initializeApp(cfg, 'inventarioApp_' + Date.now());
+                db = getFirestore(firebaseApp);
+                setFirebaseStatus('online', '✅ Firebase Conectado');
+                document.getElementById('fb-mensaje').innerHTML = '✅ <span style="color:green">Conexión exitosa. Cargando datos...</span>';
+                await cargarDesdeFirebase();
+            } catch(e) {
+                setFirebaseStatus('offline', '❌ Error Firebase');
+                document.getElementById('fb-mensaje').innerHTML = '❌ <span style="color:red">Error: ' + e.message + '</span>';
+            }
+        }
+
+        function desconectarFirebase() {
+            localStorage.removeItem('firebaseConfig');
+            db = null;
+            setFirebaseStatus('offline', '☁️ Firebase: No configurado');
+            document.getElementById('fb-mensaje').innerHTML = '🔌 <span style="color:orange">Desconectado. Usando almacenamiento local.</span>';
+        }
+
+        function setFirebaseStatus(cls, txt) {
+            const el = document.getElementById('firebaseStatus');
+            el.className = cls;
+            el.textContent = txt;
+        }
+
+        async function cargarDesdeFirebase() {
+            if (!db) return;
+            try {
+                const { doc, getDoc } = window._firebaseModules;
+                setFirebaseStatus('syncing', '🔄 Cargando datos...');
+                const snap = await getDoc(doc(db, 'inventario', 'datos'));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.inventario)  { inventario  = JSON.parse(data.inventario);  localStorage.setItem('inventarioHospital',  data.inventario); }
+                    if (data.movimientos) { movimientos = JSON.parse(data.movimientos); localStorage.setItem('movimientosHospital', data.movimientos); }
+                    if (data.ordenes)     { ordenes     = JSON.parse(data.ordenes);     localStorage.setItem('ordenesHospital',     data.ordenes); }
+                    if (data.proveedores) { proveedores = JSON.parse(data.proveedores); localStorage.setItem('proveedoresHospital', data.proveedores); }
+                    gabinetes.forEach(gab => { if (!inventario[gab]) inventario[gab] = []; });
+                    gabinetes.forEach((gab, idx) => { crearFormularioGabinete(gab, idx); mostrarInventarioGabinete(gab); });
+                    actualizarDashboard();
+                    mostrarProveedores();
+                    setFirebaseStatus('online', '✅ Datos cargados ' + new Date().toLocaleTimeString('es-CL'));
+                } else {
+                    setFirebaseStatus('online', '✅ Firebase Conectado');
+                }
+            } catch(e) {
+                setFirebaseStatus('offline', '⚠️ Error cargando');
+                document.getElementById('fb-mensaje').innerHTML = '❌ <span style="color:red">Error al cargar: ' + e.message + '</span>';
+            }
+        }
+
+        async function sincronizarAhora() {
+            if (!db) { alert('Firebase no está configurado. Ve a la pestaña ☁️ Firebase.'); return; }
+            const { doc, setDoc } = window._firebaseModules;
+            setFirebaseStatus('syncing', '🔄 Sincronizando...');
+            try {
+                await setDoc(doc(db, 'inventario', 'datos'), {
+                    inventario:   JSON.stringify(inventario),
+                    movimientos:  JSON.stringify(movimientos),
+                    ordenes:      JSON.stringify(ordenes),
+                    proveedores:  JSON.stringify(proveedores),
+                    ultimaSync:   new Date().toISOString()
+                });
+                setFirebaseStatus('online', '✅ Sincronizado ' + new Date().toLocaleTimeString('es-CL'));
+                document.getElementById('fb-mensaje').innerHTML = '✅ <span style="color:green">Datos sincronizados correctamente a las ' + new Date().toLocaleTimeString('es-CL') + '.</span>';
+            } catch(e) {
+                setFirebaseStatus('offline', '⚠️ Error sync');
+                document.getElementById('fb-mensaje').innerHTML = '❌ <span style="color:red">Error al sincronizar: ' + e.message + '</span>';
+            }
+        }
+
+        async function guardarEnFirebase() {
+            if (!db) return;
+            try {
+                const { doc, setDoc } = window._firebaseModules;
+                await setDoc(doc(db, 'inventario', 'datos'), {
+                    inventario:   JSON.stringify(inventario),
+                    movimientos:  JSON.stringify(movimientos),
+                    ordenes:      JSON.stringify(ordenes),
+                    proveedores:  JSON.stringify(proveedores),
+                    ultimaSync:   new Date().toISOString()
+                });
+                setFirebaseStatus('online', '✅ Guardado ' + new Date().toLocaleTimeString('es-CL'));
+            } catch(e) {
+                setFirebaseStatus('offline', '⚠️ Error guardando');
+            }
+        }
+
+        // ============================================================
+        //  COPY GABINETE CONTENT
+        // ============================================================
+        function copiarContenidoGabinete(gabineteName) {
+            const items = inventario[gabineteName];
+            if (!items || items.length === 0) {
+                alert('⚠️ Este gabinete no tiene artículos registrados.');
+                return;
+            }
+            let texto = `📦 ${gabineteName.toUpperCase()}\n`;
+            texto += `Fecha: ${new Date().toLocaleDateString('es-CL')} - ${new Date().toLocaleTimeString('es-CL')}\n\n`;
+            texto += 'Artículo\tStock Actual\tStock Recomendado\n';
+            items.forEach(item => {
+                texto += `${item.nombre}\t${item.stock}\t${item.maximo}\n`;
+            });
+            texto += `\nTotal: ${items.length} artículos`;
+
+            navigator.clipboard.writeText(texto).then(() => {
+                alert(`✅ ¡${gabineteName} copiado!\n\n${items.length} artículos.\n\nColumnas:\n• Artículo\n• Stock Actual\n• Stock Recomendado (Máximo)\n\nPega con Ctrl+V en Excel, Word o WhatsApp.`);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = texto;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                alert(`✅ ¡${gabineteName} copiado! (${items.length} artículos)`);
+            });
+        }
+
+        const gabinetes = ['Gabinete 1', 'Gabinete 2', 'Gabinete 3', 'Gabinete 4', 'Gabinete 5', 'Gabinete 6', 'Gabinete 7', 'Gabinete 8', 'Gabinete 9', 'Gabinete 10', 'Gabinete 11'];
+        
+        let inventario = JSON.parse(localStorage.getItem('inventarioHospital')) || {};
+        let movimientos = JSON.parse(localStorage.getItem('movimientosHospital')) || [];
+        let ordenes = JSON.parse(localStorage.getItem('ordenesHospital')) || [];
+        let proveedores = JSON.parse(localStorage.getItem('proveedoresHospital')) || [];
+        
+        gabinetes.forEach(gab => {
+            if (!inventario[gab]) inventario[gab] = [];
+        });
+        
+        if (proveedores.length === 0) {
+            proveedores = [
+                {nombre: 'Farmacia Central', contacto: 'Carlos Mendoza', telefono: '+51-999-888-777', email: 'ventas@central.com', productos: 'Medicamentos generales', plazo: 7, estado: 'ACTIVO'},
+                {nombre: 'Distribuidora Médica', contacto: 'Ana García', telefono: '+51-888-777-666', email: 'info@medsupply.com', productos: 'Insumos médicos', plazo: 5, estado: 'ACTIVO'}
+            ];
+            localStorage.setItem('proveedoresHospital', JSON.stringify(proveedores));
+            guardarEnFirebase();
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'dashboard') actualizarDashboard();
+            if (tabName === 'movimientos') actualizarSelectoresMovimientos();
+            if (tabName === 'ordenes') actualizarSelectoresOrdenes();
+        }
+
+        function crearFormularioGabinete(gabineteName, index) {
+            const contenedor = document.getElementById(gabineteName.toLowerCase().replace(' ', ''));
+            contenedor.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                    <h2 style="margin:0;">🏥 ${gabineteName}</h2>
+                    <button class="btn-copy-gabinete" onclick="copiarContenidoGabinete('${gabineteName}')">
+                        📋 Copiar Contenido del Gabinete
+                    </button>
+                </div>
+                <div class="form-section">
+                    <h3>Agregar Nuevo Artículo</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Código:</label>
+                            <input type="text" id="${gabineteName}-codigo" placeholder="G${index+1}-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Artículo/Medicamento:</label>
+                            <input type="text" id="${gabineteName}-articulo" placeholder="Nombre del artículo">
+                        </div>
+                        <div class="form-group">
+                            <label>Presentación:</label>
+                            <input type="text" id="${gabineteName}-presentacion" placeholder="Tabletas, Ampolla, etc.">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Unidades por Caja:</label>
+                            <input type="number" id="${gabineteName}-unidcaja" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Actual (unidades):</label>
+                            <input type="number" id="${gabineteName}-stock" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Mínimo:</label>
+                            <input type="number" id="${gabineteName}-minimo" value="10" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stock Medio:</label>
+                            <input type="number" id="${gabineteName}-medio" value="50" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Máximo:</label>
+                            <input type="number" id="${gabineteName}-maximo" value="100" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Caducidad:</label>
+                            <input type="date" id="${gabineteName}-caducidad">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Lote:</label>
+                            <input type="text" id="${gabineteName}-lote" placeholder="L-2024-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Proveedor:</label>
+                            <input type="text" id="${gabineteName}-proveedor" placeholder="Nombre del proveedor">
+                        </div>
+                        <div class="form-group">
+                            <label>Ubicación:</label>
+                            <input type="text" id="${gabineteName}-ubicacion" placeholder="Estante A1">
+                        </div>
+                    </div>
+                    <button onclick="agregarArticulo('${gabineteName}')">➕ Agregar Artículo</button>
+                </div>
+                
+                <h3>Inventario Actual</h3>
+                <div class="scroll-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Artículo</th>
+                                <th>Presentación</th>
+                                <th>Unid/Caja</th>
+                                <th>Stock</th>
+                                <th>Cajas</th>
+                                <th>Sueltas</th>
+                                <th>Mín</th>
+                                <th>Medio</th>
+                                <th>Máx</th>
+                                <th>Estado Stock</th>
+                                <th>Caducidad</th>
+                                <th>Estado Cad.</th>
+                                <th>Lote</th>
+                                <th>Proveedor</th>
+                                <th>Ubicación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="${gabineteName}-tabla"></tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function agregarArticulo(gabineteName) {
+            const articulo = {
+                codigo: document.getElementById(`${gabineteName}-codigo`).value,
+                nombre: document.getElementById(`${gabineteName}-articulo`).value,
+                presentacion: document.getElementById(`${gabineteName}-presentacion`).value,
+                unidCaja: parseInt(document.getElementById(`${gabineteName}-unidcaja`).value),
+                stock: parseInt(document.getElementById(`${gabineteName}-stock`).value),
+                minimo: parseInt(document.getElementById(`${gabineteName}-minimo`).value),
+                medio: parseInt(document.getElementById(`${gabineteName}-medio`).value),
+                maximo: parseInt(document.getElementById(`${gabineteName}-maximo`).value),
+                caducidad: document.getElementById(`${gabineteName}-caducidad`).value,
+                lote: document.getElementById(`${gabineteName}-lote`).value,
+                proveedor: document.getElementById(`${gabineteName}-proveedor`).value,
+                ubicacion: document.getElementById(`${gabineteName}-ubicacion`).value,
+                fechaIngreso: new Date().toISOString().split('T')[0]
+            };
+            
+            if (!articulo.codigo || !articulo.nombre) {
+                alert('Por favor completa al menos el código y nombre del artículo');
+                return;
+            }
+            
+            inventario[gabineteName].push(articulo);
+            localStorage.setItem('inventarioHospital', JSON.stringify(inventario));
+            guardarEnFirebase();
+            mostrarInventarioGabinete(gabineteName);
+            limpiarFormularioGabinete(gabineteName);
+            alert('Artículo agregado exitosamente');
+        }
+
+        function limpiarFormularioGabinete(gabineteName) {
+            document.getElementById(`${gabineteName}-codigo`).value = '';
+            document.getElementById(`${gabineteName}-articulo`).value = '';
+            document.getElementById(`${gabineteName}-presentacion`).value = '';
+            document.getElementById(`${gabineteName}-unidcaja`).value = '1';
+            document.getElementById(`${gabineteName}-stock`).value = '0';
+            document.getElementById(`${gabineteName}-minimo`).value = '10';
+            document.getElementById(`${gabineteName}-medio`).value = '50';
+            document.getElementById(`${gabineteName}-maximo`).value = '100';
+            document.getElementById(`${gabineteName}-caducidad`).value = '';
+            document.getElementById(`${gabineteName}-lote`).value = '';
+            document.getElementById(`${gabineteName}-proveedor`).value = '';
+            document.getElementById(`${gabineteName}-ubicacion`).value = '';
+        }
+
+        function getEstadoStock(stock, minimo, medio, maximo) {
+            if (stock === 0 || stock < minimo) return '🔴 CRÍTICO';
+            if (stock < medio) return '🟡 BAJO';
+            if (stock <= maximo) return '🟠 MEDIO';
+            return '🟢 ÓPTIMO';
+        }
+
+        function getBadgeClass(estado) {
+            if (estado.includes('CRÍTICO')) return 'badge-critico';
+            if (estado.includes('BAJO')) return 'badge-bajo';
+            if (estado.includes('MEDIO')) return 'badge-medio';
+            return 'badge-optimo';
+        }
+
+        function getEstadoCaducidad(fechaCaducidad) {
+            if (!fechaCaducidad) return '';
+            const hoy = new Date();
+            const caducidad = new Date(fechaCaducidad);
+            const diasDiferencia = Math.floor((caducidad - hoy) / (1000 * 60 * 60 * 24));
+            
+            if (diasDiferencia < 0) return '⚠️ VENCIDO';
+            if (diasDiferencia <= 30) return '⏰ POR VENCER';
+            return '✅ VIGENTE';
+        }
+
+        function getBadgeCaducidad(estado) {
+            if (estado.includes('VENCIDO')) return 'badge-vencido';
+            if (estado.includes('POR VENCER')) return 'badge-por-vencer';
+            return 'badge-vigente';
+        }
+
+        function mostrarInventarioGabinete(gabineteName) {
+            const tbody = document.getElementById(`${gabineteName}-tabla`);
+            tbody.innerHTML = '';
+            
+            inventario[gabineteName].forEach((item, index) => {
+                const cajas = Math.floor(item.stock / item.unidCaja);
+                const sueltas = item.stock % item.unidCaja;
+                const estadoStock = getEstadoStock(item.stock, item.minimo, item.medio, item.maximo);
+                const estadoCad = getEstadoCaducidad(item.caducidad);
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.codigo}</td>
+                    <td>${item.nombre}</td>
+                    <td>${item.presentacion}</td>
+                    <td>${item.unidCaja}</td>
+                    <td><strong>${item.stock}</strong></td>
+                    <td>${cajas}</td>
+                    <td>${sueltas}</td>
+                    <td>${item.minimo}</td>
+                    <td>${item.medio}</td>
+                    <td>${item.maximo}</td>
+                    <td><span class="badge ${getBadgeClass(estadoStock)}">${estadoStock}</span></td>
+                    <td>${item.caducidad || 'N/A'}</td>
+                    <td>${estadoCad ? `<span class="badge ${getBadgeCaducidad(estadoCad)}">${estadoCad}</span>` : ''}</td>
+                    <td>${item.lote || 'N/A'}</td>
+                    <td>${item.proveedor || 'N/A'}</td>
+                    <td>${item.ubicacion || 'N/A'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-small btn-success" onclick="ajustarStock('${gabineteName}', ${index}, 'sumar')">+</button>
+                            <button class="btn-small btn-danger" onclick="ajustarStock('${gabineteName}', ${index}, 'restar')">-</button>
+                            <button class="btn-small" onclick="editarArticulo('${gabineteName}', ${index})" style="background: #ff9800;">✏️ Editar</button>
+                            <button class="btn-small btn-danger" onclick="eliminarArticulo('${gabineteName}', ${index})">🗑️ Eliminar</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function ajustarStock(gabineteName, index, accion) {
+            const articulo = inventario[gabineteName][index];
+            
+            // Crear modal para ajuste de stock
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            const tituloAccion = accion === 'sumar' ? 'AGREGAR STOCK' : 'RETIRAR STOCK';
+            const colorAccion = accion === 'sumar' ? '#28a745' : '#dc3545';
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%;">
+                    <h2 style="margin-bottom: 20px; color: ${colorAccion};">${accion === 'sumar' ? '➕' : '➖'} ${tituloAccion}</h2>
+                    <p style="margin-bottom: 15px;"><strong>Artículo:</strong> ${articulo.nombre}</p>
+                    <p style="margin-bottom: 20px;"><strong>Stock actual:</strong> ${articulo.stock} unidades</p>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Cajas Completas:</label>
+                        <input type="number" id="ajuste-cajas" value="0" min="0" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        <small style="color: #666;">1 caja = ${articulo.unidCaja} unidades</small>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Unidades Sueltas:</label>
+                        <input type="number" id="ajuste-sueltas" value="0" min="0" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                    </div>
+                    
+                    <div style="background: #f0f0f0; padding: 10px; border-radius: 6px; margin-bottom: 20px;">
+                        <strong>Total a ${accion === 'sumar' ? 'agregar' : 'retirar'}:</strong> <span id="total-ajuste">0</span> unidades
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="cerrarModalAjuste()" class="btn-danger">❌ Cancelar</button>
+                        <button onclick="confirmarAjuste('${gabineteName}', ${index}, '${accion}')" style="background: ${colorAccion}; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer;">✓ Confirmar</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.id = 'modalAjuste';
+            
+            // Calcular total automáticamente
+            const calcularTotal = () => {
+                const cajas = parseInt(document.getElementById('ajuste-cajas').value) || 0;
+                const sueltas = parseInt(document.getElementById('ajuste-sueltas').value) || 0;
+                const total = (cajas * articulo.unidCaja) + sueltas;
+                document.getElementById('total-ajuste').textContent = total;
+            };
+            
+            document.getElementById('ajuste-cajas').oninput = calcularTotal;
+            document.getElementById('ajuste-sueltas').oninput = calcularTotal;
+            
+            modal.onclick = function(e) {
+                if (e.target === modal) cerrarModalAjuste();
+            };
+        }
+
+        function cerrarModalAjuste() {
+            const modal = document.getElementById('modalAjuste');
+            if (modal) modal.remove();
+        }
+
+        function confirmarAjuste(gabineteName, index, accion) {
+            const articulo = inventario[gabineteName][index];
+            const cajas = parseInt(document.getElementById('ajuste-cajas').value) || 0;
+            const sueltas = parseInt(document.getElementById('ajuste-sueltas').value) || 0;
+            const cant = (cajas * articulo.unidCaja) + sueltas;
+            
+            if (cant === 0) {
+                alert('Debes ingresar al menos una caja o unidad');
+                return;
+            }
+            
+            const stockAnterior = articulo.stock;
+            
+            if (accion === 'sumar') {
+                articulo.stock += cant;
+            } else {
+                if (articulo.stock < cant) {
+                    alert('No hay suficiente stock para retirar esa cantidad');
+                    return;
+                }
+                articulo.stock -= cant;
+            }
+            
+            const movimiento = {
+                fecha: new Date().toLocaleString('es-ES'),
+                tipo: accion === 'sumar' ? 'ENTRADA' : 'SALIDA',
+                gabinete: gabineteName,
+                articulo: articulo.nombre,
+                cantidad: cant,
+                stockAnterior: stockAnterior,
+                stockNuevo: articulo.stock,
+                motivo: `Ajuste rápido: ${cajas} cajas + ${sueltas} sueltas`,
+                responsable: 'Sistema'
+            };
+            
+            movimientos.unshift(movimiento);
+            localStorage.setItem('inventarioHospital', JSON.stringify(inventario));
+            localStorage.setItem('movimientosHospital', JSON.stringify(movimientos));
+            guardarEnFirebase();
+            mostrarInventarioGabinete(gabineteName);
+            cerrarModalAjuste();
+            alert(`✅ Stock actualizado: ${stockAnterior} → ${articulo.stock} unidades`);
+        }
+
+        function eliminarArticulo(gabineteName, index) {
+            const articulo = inventario[gabineteName][index];
+            const motivo = prompt('¿Por qué se elimina este artículo?\n(Ej: Retirado del mercado, discontinuado, etc.)');
+            
+            if (motivo === null) return;
+            
+            if (confirm(`¿Estás SEGURO de eliminar permanentemente:\n\n${articulo.codigo} - ${articulo.nombre}\n\nStock actual: ${articulo.stock} unidades\n\nEsta acción NO se puede deshacer.\nEl historial de movimientos se conservará.`)) {
+                
+                // Registrar eliminación en el historial
+                const movimiento = {
+                    fecha: new Date().toLocaleString('es-ES'),
+                    tipo: 'ELIMINACIÓN DE PRODUCTO',
+                    gabinete: gabineteName,
+                    articulo: `${articulo.codigo} - ${articulo.nombre}`,
+                    cantidad: articulo.stock,
+                    stockAnterior: articulo.stock,
+                    stockNuevo: 0,
+                    motivo: motivo || 'Sin especificar',
+                    responsable: 'Sistema'
+                };
+                
+                movimientos.unshift(movimiento);
+                localStorage.setItem('movimientosHospital', JSON.stringify(movimientos));
+                guardarEnFirebase();
+                
+                // Eliminar el artículo
+                inventario[gabineteName].splice(index, 1);
+                localStorage.setItem('inventarioHospital', JSON.stringify(inventario));
+                guardarEnFirebase();
+                mostrarInventarioGabinete(gabineteName);
+                
+                alert('Artículo eliminado del sistema.\nSe ha registrado en el historial de movimientos.');
+            }
+        }
+
+        function editarArticulo(gabineteName, index) {
+            const articulo = inventario[gabineteName][index];
+            
+            // Crear modal de edición
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                    <h2 style="margin-bottom: 20px; color: #1a237e;">✏️ Editar Artículo</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Código:</label>
+                            <input type="text" id="edit-codigo" value="${articulo.codigo}">
+                        </div>
+                        <div class="form-group">
+                            <label>Artículo/Medicamento:</label>
+                            <input type="text" id="edit-articulo" value="${articulo.nombre}">
+                        </div>
+                        <div class="form-group">
+                            <label>Presentación:</label>
+                            <input type="text" id="edit-presentacion" value="${articulo.presentacion}">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Unidades por Caja:</label>
+                            <input type="number" id="edit-unidcaja" value="${articulo.unidCaja}" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Actual (unidades):</label>
+                            <input type="number" id="edit-stock" value="${articulo.stock}" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Mínimo:</label>
+                            <input type="number" id="edit-minimo" value="${articulo.minimo}" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stock Medio:</label>
+                            <input type="number" id="edit-medio" value="${articulo.medio}" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Máximo:</label>
+                            <input type="number" id="edit-maximo" value="${articulo.maximo}" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Caducidad:</label>
+                            <input type="date" id="edit-caducidad" value="${articulo.caducidad || ''}">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Lote:</label>
+                            <input type="text" id="edit-lote" value="${articulo.lote || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Proveedor:</label>
+                            <input type="text" id="edit-proveedor" value="${articulo.proveedor || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Ubicación:</label>
+                            <input type="text" id="edit-ubicacion" value="${articulo.ubicacion || ''}">
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="cerrarModal()" class="btn-danger">❌ Cancelar</button>
+                        <button onclick="guardarEdicion('${gabineteName}', ${index})" class="btn-success">✅ Guardar Cambios</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.id = 'modalEdicion';
+            
+            // Cerrar al hacer clic fuera
+            modal.onclick = function(e) {
+                if (e.target === modal) cerrarModal();
+            };
+        }
+
+        function cerrarModal() {
+            const modal = document.getElementById('modalEdicion');
+            if (modal) modal.remove();
+        }
+
+        function guardarEdicion(gabineteName, index) {
+            const articuloAnterior = {...inventario[gabineteName][index]};
+            
+            // Actualizar el artículo
+            inventario[gabineteName][index] = {
+                codigo: document.getElementById('edit-codigo').value,
+                nombre: document.getElementById('edit-articulo').value,
+                presentacion: document.getElementById('edit-presentacion').value,
+                unidCaja: parseInt(document.getElementById('edit-unidcaja').value),
+                stock: parseInt(document.getElementById('edit-stock').value),
+                minimo: parseInt(document.getElementById('edit-minimo').value),
+                medio: parseInt(document.getElementById('edit-medio').value),
+                maximo: parseInt(document.getElementById('edit-maximo').value),
+                caducidad: document.getElementById('edit-caducidad').value,
+                lote: document.getElementById('edit-lote').value,
+                proveedor: document.getElementById('edit-proveedor').value,
+                ubicacion: document.getElementById('edit-ubicacion').value,
+                fechaIngreso: articuloAnterior.fechaIngreso
+            };
+            
+            // Registrar edición en historial si cambió el stock
+            if (articuloAnterior.stock !== inventario[gabineteName][index].stock) {
+                const movimiento = {
+                    fecha: new Date().toLocaleString('es-ES'),
+                    tipo: 'AJUSTE POR EDICIÓN',
+                    gabinete: gabineteName,
+                    articulo: inventario[gabineteName][index].nombre,
+                    cantidad: Math.abs(inventario[gabineteName][index].stock - articuloAnterior.stock),
+                    stockAnterior: articuloAnterior.stock,
+                    stockNuevo: inventario[gabineteName][index].stock,
+                    motivo: 'Edición manual del artículo',
+                    responsable: 'Sistema'
+                };
+                
+                movimientos.unshift(movimiento);
+                localStorage.setItem('movimientosHospital', JSON.stringify(movimientos));
+                guardarEnFirebase();
+            }
+            
+            localStorage.setItem('inventarioHospital', JSON.stringify(inventario));
+            guardarEnFirebase();
+            mostrarInventarioGabinete(gabineteName);
+            cerrarModal();
+            alert('✅ Artículo actualizado exitosamente');
+        }
+
+        function actualizarDashboard() {
+            const statsContainer = document.getElementById('dashboardStats');
+            statsContainer.innerHTML = '';
+            
+            let totales = {
+                articulos: 0,
+                criticos: 0,
+                bajos: 0,
+                medios: 0,
+                optimos: 0,
+                vencidos: 0,
+                porVencer: 0
+            };
+            
+            // Actualizar tabla de stock bajo/crítico primero
+            const alertasStockBody = document.getElementById('alertasStockBody');
+            alertasStockBody.innerHTML = '';
+            
+            gabinetes.forEach((gab, idx) => {
+                const items = inventario[gab] || [];
+                let criticos = 0, bajos = 0, medios = 0, optimos = 0, vencidos = 0, porVencer = 0;
+                
+                items.forEach(item => {
+                    const estado = getEstadoStock(item.stock, item.minimo, item.medio, item.maximo);
+                    if (estado.includes('CRÍTICO')) criticos++;
+                    else if (estado.includes('BAJO')) bajos++;
+                    else if (estado.includes('MEDIO')) medios++;
+                    else optimos++;
+                    
+                    const estadoCad = getEstadoCaducidad(item.caducidad);
+                    if (estadoCad.includes('VENCIDO')) vencidos++;
+                    else if (estadoCad.includes('POR VENCER')) porVencer++;
+                    
+                    // Agregar a tabla de alertas de stock
+                    if (estado.includes('CRÍTICO') || estado.includes('BAJO')) {
+                        const proveedor = proveedores.find(p => p.nombre === item.proveedor);
+                        const telefono = proveedor ? proveedor.telefono : 'N/A';
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${gab}</td>
+                            <td>${item.codigo}</td>
+                            <td><strong>${item.nombre}</strong></td>
+                            <td>${item.stock} unidades</td>
+                            <td>${item.minimo}</td>
+                            <td><span class="badge ${getBadgeClass(estado)}">${estado}</span></td>
+                            <td>${item.proveedor || 'Sin proveedor'}</td>
+                            <td>${telefono}</td>
+                        `;
+                        alertasStockBody.appendChild(tr);
+                    }
+                });
+                
+                totales.articulos += items.length;
+                totales.criticos += criticos;
+                totales.bajos += bajos;
+                totales.medios += medios;
+                totales.optimos += optimos;
+                totales.vencidos += vencidos;
+                totales.porVencer += porVencer;
+                
+                statsContainer.innerHTML += `
+                    <div class="stat-card">
+                        <h3>${gab}</h3>
+                        <div class="value">${items.length}</div>
+                        <div class="label">
+                            🔴 ${criticos} | 🟡 ${bajos} | 🟠 ${medios} | 🟢 ${optimos}<br>
+                            ⚠️ ${vencidos} vencidos | ⏰ ${porVencer} por vencer
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statsContainer.innerHTML += `
+                <div class="stat-card" style="background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);">
+                    <h3>TOTAL GENERAL</h3>
+                    <div class="value">${totales.articulos}</div>
+                    <div class="label">
+                        🔴 ${totales.criticos} | 🟡 ${totales.bajos} | 🟠 ${totales.medios} | 🟢 ${totales.optimos}<br>
+                        ⚠️ ${totales.vencidos} vencidos | ⏰ ${totales.porVencer} por vencer
+                    </div>
+                </div>
+            `;
+            
+            // Actualizar tabla de alertas de caducidad
+            const alertasBody = document.getElementById('alertasBody');
+            alertasBody.innerHTML = '';
+            
+            gabinetes.forEach(gab => {
+                inventario[gab].forEach(item => {
+                    const estadoCad = getEstadoCaducidad(item.caducidad);
+                    
+                    if (estadoCad.includes('VENCIDO') || estadoCad.includes('POR VENCER')) {
+                        const hoy = new Date();
+                        const caducidad = new Date(item.caducidad);
+                        const diasRestantes = Math.floor((caducidad - hoy) / (1000 * 60 * 60 * 24));
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${gab}</td>
+                            <td>${item.codigo}</td>
+                            <td><strong>${item.nombre}</strong></td>
+                            <td>${item.stock} unidades</td>
+                            <td>${item.caducidad || 'N/A'}</td>
+                            <td>${diasRestantes < 0 ? 'VENCIDO' : diasRestantes + ' días'}</td>
+                            <td><span class="badge ${getBadgeCaducidad(estadoCad)}">${estadoCad}</span></td>
+                            <td>${item.lote || 'N/A'}</td>
+                            <td>${item.ubicacion || 'N/A'}</td>
+                        `;
+                        alertasBody.appendChild(tr);
+                    }
+                });
+            });
+        }
+
+        function actualizarSelectoresMovimientos() {
+            const selectGabinete = document.getElementById('movGabinete');
+            const selectArticulo = document.getElementById('movArticulo');
+            
+            selectGabinete.innerHTML = '<option value="">Seleccione gabinete</option>';
+            gabinetes.forEach(gab => {
+                selectGabinete.innerHTML += `<option value="${gab}">${gab}</option>`;
+            });
+            
+            selectGabinete.onchange = function() {
+                selectArticulo.innerHTML = '<option value="">Seleccione artículo</option>';
+                if (this.value) {
+                    inventario[this.value].forEach((item, idx) => {
+                        selectArticulo.innerHTML += `<option value="${idx}" data-unidcaja="${item.unidCaja}">${item.codigo} - ${item.nombre}</option>`;
+                    });
+                }
+            };
+            
+            // Calcular total unidades automáticamente
+            const calcularTotalMov = () => {
+                const articuloSelect = document.getElementById('movArticulo');
+                const selectedOption = articuloSelect.options[articuloSelect.selectedIndex];
+                const unidCaja = parseInt(selectedOption?.getAttribute('data-unidcaja')) || 1;
+                const cajas = parseInt(document.getElementById('movCajas').value) || 0;
+                const sueltas = parseInt(document.getElementById('movUnidades').value) || 0;
+                const total = (cajas * unidCaja) + sueltas;
+                document.getElementById('movTotalUnidades').value = total;
+            };
+            
+            document.getElementById('movCajas').oninput = calcularTotalMov;
+            document.getElementById('movUnidades').oninput = calcularTotalMov;
+            document.getElementById('movArticulo').onchange = calcularTotalMov;
+            
+            mostrarMovimientos();
+        }
+
+        function registrarMovimiento() {
+            const tipo = document.getElementById('movTipo').value;
+            const gabinete = document.getElementById('movGabinete').value;
+            const articuloIdx = document.getElementById('movArticulo').value;
+            const cajas = parseInt(document.getElementById('movCajas').value) || 0;
+            const unidades = parseInt(document.getElementById('movUnidades').value) || 0;
+            const motivo = document.getElementById('movMotivo').value;
+            const responsable = document.getElementById('movResponsable').value;
+            
+            if (!gabinete || articuloIdx === '') {
+                alert('Selecciona gabinete y artículo');
+                return;
+            }
+            
+            const articulo = inventario[gabinete][articuloIdx];
+            const totalUnidades = (cajas * articulo.unidCaja) + unidades;
+            
+            if (totalUnidades === 0) {
+                alert('Debes ingresar al menos una caja o unidad');
+                return;
+            }
+            
+            const stockAnterior = articulo.stock;
+            
+            if (tipo === 'ENTRADA' || tipo === 'AJUSTE') {
+                articulo.stock += totalUnidades;
+            } else {
+                if (articulo.stock < totalUnidades) {
+                    alert('No hay suficiente stock');
+                    return;
+                }
+                articulo.stock -= totalUnidades;
+            }
+            
+            const movimiento = {
+                fecha: new Date().toLocaleString('es-ES'),
+                tipo: tipo,
+                gabinete: gabinete,
+                articulo: articulo.nombre,
+                cantidad: totalUnidades,
+                stockAnterior: stockAnterior,
+                stockNuevo: articulo.stock,
+                motivo: motivo || 'Sin especificar',
+                responsable: responsable || 'No registrado'
+            };
+            
+            movimientos.unshift(movimiento);
+            localStorage.setItem('inventarioHospital', JSON.stringify(inventario));
+            localStorage.setItem('movimientosHospital', JSON.stringify(movimientos));
+            guardarEnFirebase();
+            
+            document.getElementById('movCajas').value = '0';
+            document.getElementById('movUnidades').value = '0';
+            document.getElementById('movMotivo').value = '';
+            document.getElementById('movResponsable').value = '';
+            
+            mostrarMovimientos();
+            mostrarInventarioGabinete(gabinete);
+            alert('Movimiento registrado exitosamente');
+        }
+
+        function mostrarMovimientos() {
+            const tbody = document.getElementById('movimientosBody');
+            tbody.innerHTML = '';
+            
+            movimientos.slice(0, 50).forEach(mov => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${mov.fecha}</td>
+                    <td><strong>${mov.tipo}</strong></td>
+                    <td>${mov.gabinete}</td>
+                    <td>${mov.articulo}</td>
+                    <td>${mov.cantidad}</td>
+                    <td>${mov.stockAnterior}</td>
+                    <td>${mov.stockNuevo}</td>
+                    <td>${mov.motivo}</td>
+                    <td>${mov.responsable}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function actualizarSelectoresOrdenes() {
+            const selectProveedor = document.getElementById('ordenProveedor');
+            selectProveedor.innerHTML = '<option value="">Seleccione proveedor</option>';
+            proveedores.forEach(prov => {
+                selectProveedor.innerHTML += `<option value="${prov.nombre}">${prov.nombre}</option>`;
+            });
+            mostrarOrdenes();
+        }
+
+        function crearOrden() {
+            const orden = {
+                numero: document.getElementById('ordenNumero').value,
+                fecha: new Date().toLocaleDateString('es-ES'),
+                fechaEsperada: document.getElementById('ordenFechaEsperada').value,
+                proveedor: document.getElementById('ordenProveedor').value,
+                articulo: document.getElementById('ordenArticulo').value,
+                cantidad: parseInt(document.getElementById('ordenCantidad').value),
+                factura: document.getElementById('ordenFactura').value,
+                estado: 'PENDIENTE',
+                gabinete: document.getElementById('ordenGabinete').value,
+                responsable: document.getElementById('ordenResponsable').value
+            };
+            
+            if (!orden.numero || !orden.proveedor || !orden.articulo || !orden.cantidad) {
+                alert('Completa todos los campos obligatorios');
+                return;
+            }
+            
+            ordenes.unshift(orden);
+            localStorage.setItem('ordenesHospital', JSON.stringify(ordenes));
+            guardarEnFirebase();
+            
+            document.getElementById('ordenNumero').value = '';
+            document.getElementById('ordenArticulo').value = '';
+            document.getElementById('ordenCantidad').value = '';
+            document.getElementById('ordenFactura').value = '';
+            document.getElementById('ordenFechaEsperada').value = '';
+            document.getElementById('ordenResponsable').value = '';
+            
+            mostrarOrdenes();
+            alert('Orden creada exitosamente');
+        }
+
+        function mostrarOrdenes() {
+            const tbody = document.getElementById('ordenesBody');
+            tbody.innerHTML = '';
+            
+            ordenes.forEach((orden, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${orden.numero}</strong></td>
+                    <td>${orden.fecha}</td>
+                    <td>${orden.fechaEsperada || 'No especificada'}</td>
+                    <td>${orden.proveedor}</td>
+                    <td>${orden.articulo}</td>
+                    <td>${orden.cantidad}</td>
+                    <td>${orden.factura || 'Pendiente'}</td>
+                    <td><span class="badge ${orden.estado === 'PENDIENTE' ? 'badge-bajo' : 'badge-vigente'}">${orden.estado}</span></td>
+                    <td>${orden.gabinete}</td>
+                    <td>${orden.responsable}</td>
+                    <td>
+                        <button class="btn-small" onclick="editarOrden(${idx})" style="background: #ff9800;">✏️</button>
+                        <button class="btn-small btn-success" onclick="cambiarEstadoOrden(${idx}, 'RECIBIDO')">✓</button>
+                        <button class="btn-small btn-danger" onclick="eliminarOrden(${idx})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function editarOrden(idx) {
+            const orden = ordenes[idx];
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                    <h2 style="margin-bottom: 20px; color: #1a237e;">✏️ Editar Orden</h2>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>N° Orden:</label>
+                        <input type="text" id="edit-orden-numero" value="${orden.numero}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>N° Factura:</label>
+                        <input type="text" id="edit-orden-factura" value="${orden.factura || ''}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Fecha Esperada:</label>
+                        <input type="date" id="edit-orden-fecha" value="${orden.fechaEsperada || ''}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Estado:</label>
+                        <select id="edit-orden-estado" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                            <option ${orden.estado === 'PENDIENTE' ? 'selected' : ''}>PENDIENTE</option>
+                            <option ${orden.estado === 'EN TRÁNSITO' ? 'selected' : ''}>EN TRÁNSITO</option>
+                            <option ${orden.estado === 'RECIBIDO' ? 'selected' : ''}>RECIBIDO</option>
+                            <option ${orden.estado === 'CANCELADO' ? 'selected' : ''}>CANCELADO</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="cerrarModalOrden()" class="btn-danger">❌ Cancelar</button>
+                        <button onclick="guardarEdicionOrden(${idx})" class="btn-success">✅ Guardar</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.id = 'modalOrden';
+            
+            modal.onclick = function(e) {
+                if (e.target === modal) cerrarModalOrden();
+            };
+        }
+
+        function cerrarModalOrden() {
+            const modal = document.getElementById('modalOrden');
+            if (modal) modal.remove();
+        }
+
+        function guardarEdicionOrden(idx) {
+            ordenes[idx].numero = document.getElementById('edit-orden-numero').value;
+            ordenes[idx].factura = document.getElementById('edit-orden-factura').value;
+            ordenes[idx].fechaEsperada = document.getElementById('edit-orden-fecha').value;
+            ordenes[idx].estado = document.getElementById('edit-orden-estado').value;
+            
+            localStorage.setItem('ordenesHospital', JSON.stringify(ordenes));
+            guardarEnFirebase();
+            mostrarOrdenes();
+            cerrarModalOrden();
+            alert('✅ Orden actualizada exitosamente');
+        }
+
+        function cambiarEstadoOrden(idx, estado) {
+            ordenes[idx].estado = estado;
+            localStorage.setItem('ordenesHospital', JSON.stringify(ordenes));
+            guardarEnFirebase();
+            mostrarOrdenes();
+        }
+
+        function eliminarOrden(idx) {
+            if (confirm('¿Eliminar esta orden?')) {
+                ordenes.splice(idx, 1);
+                localStorage.setItem('ordenesHospital', JSON.stringify(ordenes));
+                guardarEnFirebase();
+                mostrarOrdenes();
+            }
+        }
+
+        function agregarProveedor() {
+            const proveedor = {
+                nombre: document.getElementById('provNombre').value,
+                contacto: document.getElementById('provContacto').value,
+                telefono: document.getElementById('provTelefono').value,
+                email: document.getElementById('provEmail').value,
+                productos: document.getElementById('provProductos').value,
+                plazo: parseInt(document.getElementById('provPlazo').value),
+                estado: 'ACTIVO'
+            };
+            
+            if (!proveedor.nombre) {
+                alert('Ingresa al menos el nombre del proveedor');
+                return;
+            }
+            
+            proveedores.push(proveedor);
+            localStorage.setItem('proveedoresHospital', JSON.stringify(proveedores));
+            guardarEnFirebase();
+            
+            document.getElementById('provNombre').value = '';
+            document.getElementById('provContacto').value = '';
+            document.getElementById('provTelefono').value = '';
+            document.getElementById('provEmail').value = '';
+            document.getElementById('provProductos').value = '';
+            document.getElementById('provPlazo').value = '7';
+            
+            mostrarProveedores();
+            alert('Proveedor agregado');
+        }
+
+        function mostrarProveedores() {
+            const tbody = document.getElementById('proveedoresBody');
+            tbody.innerHTML = '';
+            
+            proveedores.forEach((prov, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${prov.nombre}</strong></td>
+                    <td>${prov.contacto}</td>
+                    <td>${prov.telefono}</td>
+                    <td>${prov.email}</td>
+                    <td>${prov.productos}</td>
+                    <td>${prov.plazo} días</td>
+                    <td><span class="badge badge-vigente">${prov.estado}</span></td>
+                    <td>
+                        <button class="btn-small" onclick="editarProveedor(${idx})" style="background: #ff9800;">✏️</button>
+                        <button class="btn-small btn-danger" onclick="eliminarProveedor(${idx})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function eliminarProveedor(idx) {
+            if (confirm('¿Eliminar este proveedor?\n\nEsta acción no se puede deshacer.')) {
+                proveedores.splice(idx, 1);
+                localStorage.setItem('proveedoresHospital', JSON.stringify(proveedores));
+                guardarEnFirebase();
+                mostrarProveedores();
+            }
+        }
+
+        function editarProveedor(idx) {
+            const prov = proveedores[idx];
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                    <h2 style="margin-bottom: 20px; color: #1a237e;">✏️ Editar Proveedor</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre Comercial:</label>
+                            <input type="text" id="edit-prov-nombre" value="${prov.nombre}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Contacto:</label>
+                            <input type="text" id="edit-prov-contacto" value="${prov.contacto}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Teléfono:</label>
+                            <input type="text" id="edit-prov-telefono" value="${prov.telefono}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Email:</label>
+                            <input type="email" id="edit-prov-email" value="${prov.email}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Productos que Suministra:</label>
+                            <input type="text" id="edit-prov-productos" value="${prov.productos}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Plazo Entrega (días):</label>
+                            <input type="number" id="edit-prov-plazo" value="${prov.plazo}" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Estado:</label>
+                        <select id="edit-prov-estado" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                            <option ${prov.estado === 'ACTIVO' ? 'selected' : ''}>ACTIVO</option>
+                            <option ${prov.estado === 'INACTIVO' ? 'selected' : ''}>INACTIVO</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="cerrarModalProveedor()" class="btn-danger">❌ Cancelar</button>
+                        <button onclick="guardarEdicionProveedor(${idx})" class="btn-success">✅ Guardar</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.id = 'modalProveedor';
+            
+            modal.onclick = function(e) {
+                if (e.target === modal) cerrarModalProveedor();
+            };
+        }
+
+        function cerrarModalProveedor() {
+            const modal = document.getElementById('modalProveedor');
+            if (modal) modal.remove();
+        }
+
+        function guardarEdicionProveedor(idx) {
+            proveedores[idx] = {
+                nombre: document.getElementById('edit-prov-nombre').value,
+                contacto: document.getElementById('edit-prov-contacto').value,
+                telefono: document.getElementById('edit-prov-telefono').value,
+                email: document.getElementById('edit-prov-email').value,
+                productos: document.getElementById('edit-prov-productos').value,
+                plazo: parseInt(document.getElementById('edit-prov-plazo').value),
+                estado: document.getElementById('edit-prov-estado').value
+            };
+            
+            localStorage.setItem('proveedoresHospital', JSON.stringify(proveedores));
+            guardarEnFirebase();
+            mostrarProveedores();
+            cerrarModalProveedor();
+            alert('✅ Proveedor actualizado exitosamente');
+        }
+
+        function exportarAExcel() {
+            let csv = 'INVENTARIO COMPLETO\n\n';
+            
+            gabinetes.forEach(gab => {
+                csv += `\n${gab}\n`;
+                csv += 'Código,Artículo,Presentación,Unid/Caja,Stock,Cajas,Sueltas,Mínimo,Medio,Máximo,Estado,Caducidad,Lote,Proveedor,Ubicación\n';
+                
+                inventario[gab].forEach(item => {
+                    const cajas = Math.floor(item.stock / item.unidCaja);
+                    const sueltas = item.stock % item.unidCaja;
+                    const estado = getEstadoStock(item.stock, item.minimo, item.medio, item.maximo);
+                    csv += `${item.codigo},${item.nombre},${item.presentacion},${item.unidCaja},${item.stock},${cajas},${sueltas},${item.minimo},${item.medio},${item.maximo},${estado},${item.caducidad || ''},${item.lote || ''},${item.proveedor || ''},${item.ubicacion || ''}\n`;
+                });
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `inventario_hospital_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        function exportarStockBajo() {
+            const fecha = new Date().toLocaleDateString('es-ES');
+            const hora = new Date().toLocaleTimeString('es-ES');
+            
+            let csv = 'REPORTE DE ARTÍCULOS CON STOCK BAJO O CRÍTICO\n';
+            csv += `Fecha: ${fecha}\n`;
+            csv += `Hora: ${hora}\n`;
+            csv += '\n';
+            csv += 'Gabinete,Código,Artículo,Presentación,Stock Actual,Stock Mínimo,Stock Medio,Stock Máximo,Diferencia,Estado,Caducidad,Lote,Proveedor,Teléfono,Ubicación\n';
+            
+            let totalCriticos = 0;
+            let totalBajos = 0;
+            
+            gabinetes.forEach(gab => {
+                inventario[gab].forEach(item => {
+                    const estado = getEstadoStock(item.stock, item.minimo, item.medio, item.maximo);
+                    
+                    if (estado.includes('CRÍTICO') || estado.includes('BAJO')) {
+                        const diferencia = item.minimo - item.stock;
+                        const proveedor = proveedores.find(p => p.nombre === item.proveedor);
+                        const telefono = proveedor ? proveedor.telefono : 'N/A';
+                        
+                        csv += `${gab},${item.codigo},"${item.nombre}",${item.presentacion},${item.stock},${item.minimo},${item.medio},${item.maximo},${diferencia > 0 ? diferencia : 0},${estado},${item.caducidad || 'N/A'},${item.lote || 'N/A'},"${item.proveedor || 'Sin proveedor'}",${telefono},${item.ubicacion || 'N/A'}\n`;
+                        
+                        if (estado.includes('CRÍTICO')) totalCriticos++;
+                        else if (estado.includes('BAJO')) totalBajos++;
+                    }
+                });
+            });
+            
+            csv += '\n';
+            csv += 'RESUMEN\n';
+            csv += `Total artículos críticos,${totalCriticos}\n`;
+            csv += `Total artículos bajos,${totalBajos}\n`;
+            csv += `TOTAL REQUIERE ATENCIÓN,${totalCriticos + totalBajos}\n`;
+            csv += '\n';
+            csv += 'RECOMENDACIONES:\n';
+            csv += '- Los artículos CRÍTICOS requieren pedido URGENTE\n';
+            csv += '- Los artículos BAJOS deben incluirse en la próxima orden de compra\n';
+            csv += '- La columna DIFERENCIA indica cuántas unidades faltan para llegar al mínimo\n';
+            csv += '- Contactar a los proveedores usando los teléfonos listados\n';
+            
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `stock_bajo_${new Date().toISOString().split('T')[0]}_${new Date().getHours()}-${new Date().getMinutes()}.csv`;
+            link.click();
+            
+            alert(`✅ Archivo descargado exitosamente\n\n📊 Resumen:\n🔴 Críticos: ${totalCriticos}\n🟡 Bajos: ${totalBajos}\n\nTotal: ${totalCriticos + totalBajos} artículos`);
+        }
+
+        function copiarStockBajo() {
+            let texto = 'ARTÍCULOS CON STOCK BAJO O CRÍTICO\n';
+            texto += `Fecha: ${new Date().toLocaleDateString('es-ES')} - ${new Date().toLocaleTimeString('es-ES')}\n\n`;
+            texto += 'Artículo\tStock Actual\tCantidad Mínima\n';
+            
+            let count = 0;
+            gabinetes.forEach(gab => {
+                inventario[gab].forEach(item => {
+                    const estado = getEstadoStock(item.stock, item.minimo, item.medio, item.maximo);
+                    
+                    if (estado.includes('CRÍTICO') || estado.includes('BAJO')) {
+                        texto += `${item.nombre}\t${item.stock}\t${item.minimo}\n`;
+                        count++;
+                    }
+                });
+            });
+            
+            texto += `\nTotal: ${count} artículos`;
+            
+            navigator.clipboard.writeText(texto).then(() => {
+                alert(`✅ ¡Copiado al portapapeles!\n\n${count} artículos copiados.\n\nColumnas:\n• Artículo\n• Stock Actual\n• Cantidad Mínima\n\nPuedes pegar en:\n• Excel (Ctrl+V)\n• Word\n• Google Sheets\n• WhatsApp`);
+            }).catch(err => {
+                alert('❌ Error al copiar. Intenta de nuevo.');
+            });
+        }
+
+        function exportarCaducidad() {
+            const fecha = new Date().toLocaleDateString('es-ES');
+            const hora = new Date().toLocaleTimeString('es-ES');
+            
+            let csv = 'REPORTE DE ARTÍCULOS VENCIDOS O POR VENCER\n';
+            csv += `Fecha: ${fecha}\n`;
+            csv += `Hora: ${hora}\n`;
+            csv += '\n';
+            csv += 'Gabinete,Código,Artículo,Stock,Fecha Caducidad,Días Restantes,Estado,Lote,Ubicación,Proveedor,Acción Recomendada\n';
+            
+            let totalVencidos = 0;
+            let totalPorVencer = 0;
+            
+            gabinetes.forEach(gab => {
+                inventario[gab].forEach(item => {
+                    const estadoCad = getEstadoCaducidad(item.caducidad);
+                    
+                    if (estadoCad.includes('VENCIDO') || estadoCad.includes('POR VENCER')) {
+                        const hoy = new Date();
+                        const caducidad = new Date(item.caducidad);
+                        const diasRestantes = Math.floor((caducidad - hoy) / (1000 * 60 * 60 * 24));
+                        const accion = diasRestantes < 0 ? 'DAR DE BAJA INMEDIATAMENTE' : diasRestantes <= 7 ? 'USAR URGENTE' : 'PRIORIZAR USO';
+                        
+                        csv += `${gab},${item.codigo},"${item.nombre}",${item.stock},${item.caducidad || 'N/A'},${diasRestantes < 0 ? 'VENCIDO' : diasRestantes},${estadoCad},${item.lote || 'N/A'},${item.ubicacion || 'N/A'},${item.proveedor || 'N/A'},${accion}\n`;
+                        
+                        if (estadoCad.includes('VENCIDO')) totalVencidos++;
+                        else totalPorVencer++;
+                    }
+                });
+            });
+            
+            csv += '\n';
+            csv += 'RESUMEN\n';
+            csv += `Total artículos vencidos,${totalVencidos}\n`;
+            csv += `Total artículos por vencer,${totalPorVencer}\n`;
+            csv += `TOTAL REQUIERE ATENCIÓN,${totalVencidos + totalPorVencer}\n`;
+            csv += '\n';
+            csv += 'ACCIONES RECOMENDADAS:\n';
+            csv += '- Artículos VENCIDOS: Dar de baja inmediatamente según protocolo\n';
+            csv += '- Artículos por vencer en 7 días o menos: Usar con prioridad\n';
+            csv += '- Artículos por vencer en 8-30 días: Priorizar en rotación FIFO\n';
+            csv += '- Registrar todas las bajas en el sistema de movimientos\n';
+            csv += '- Verificar ubicación física de cada artículo\n';
+            
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `caducidad_${new Date().toISOString().split('T')[0]}_${new Date().getHours()}-${new Date().getMinutes()}.csv`;
+            link.click();
+            
+            alert(`✅ Archivo descargado exitosamente\n\n📊 Resumen:\n⚠️ Vencidos: ${totalVencidos}\n⏰ Por vencer: ${totalPorVencer}\n\nTotal: ${totalVencidos + totalPorVencer} artículos`);
+        }
+
+        function copiarCaducidad() {
+            let texto = 'ARTÍCULOS VENCIDOS O POR VENCER\n';
+            texto += `Fecha: ${new Date().toLocaleDateString('es-ES')} - ${new Date().toLocaleTimeString('es-ES')}\n\n`;
+            texto += 'Gabinete\tCódigo\tArtículo\tStock\tFecha Caducidad\tDías Restantes\tEstado\tLote\tUbicación\n';
+            
+            let count = 0;
+            gabinetes.forEach(gab => {
+                inventario[gab].forEach(item => {
+                    const estadoCad = getEstadoCaducidad(item.caducidad);
+                    
+                    if (estadoCad.includes('VENCIDO') || estadoCad.includes('POR VENCER')) {
+                        const hoy = new Date();
+                        const caducidad = new Date(item.caducidad);
+                        const diasRestantes = Math.floor((caducidad - hoy) / (1000 * 60 * 60 * 24));
+                        
+                        texto += `${gab}\t${item.codigo}\t${item.nombre}\t${item.stock}\t${item.caducidad || 'N/A'}\t${diasRestantes < 0 ? 'VENCIDO' : diasRestantes + ' días'}\t${estadoCad}\t${item.lote || 'N/A'}\t${item.ubicacion || 'N/A'}\n`;
+                        count++;
+                    }
+                });
+            });
+            
+            navigator.clipboard.writeText(texto).then(() => {
+                alert(`✅ ¡Copiado al portapapeles!\n\n${count} artículos copiados.\n\nPuedes pegar esta información en:\n• Excel (Ctrl+V)\n• Word\n• Google Sheets\n• Cualquier editor de texto`);
+            }).catch(err => {
+                alert('❌ Error al copiar. Intenta de nuevo.');
+            });
+        }
+
+        gabinetes.forEach((gab, idx) => {
+            crearFormularioGabinete(gab, idx);
+            mostrarInventarioGabinete(gab);
+        });
+        
+        actualizarDashboard();
+        mostrarProveedores();
+    </script>
+</body>
+</html>
